@@ -1,11 +1,6 @@
 """
-╔══════════════════════════════════════════════════════════════╗
-║          PC OPTIMIZER — Game Mode + Cleaner + Uninstaller    ║
-║          Otimização completa do Windows em um só script      ║
-╚══════════════════════════════════════════════════════════════╝
-
-  Requer Python 3.8+ | Administrador recomendado para acesso total.
-  Uso: python pc_optimizer.py
+  Ω  GREEK OPTIMIZER  Σ
+  Λ Δ Φ Ψ Π — Windows Performance & Optimization Tool
 """
 
 import os
@@ -16,7 +11,111 @@ import winreg
 import tempfile
 import subprocess
 import time
+import platform
+import socket
 from pathlib import Path
+from datetime import datetime, timedelta
+from itertools import zip_longest
+
+
+# ══════════════════════════════════════════════════════════════
+# CORES ANSI
+# ══════════════════════════════════════════════════════════════
+
+class C:
+    RESET    = "\033[0m"
+    BOLD     = "\033[1m"
+    DIM      = "\033[2m"
+    BLACK    = "\033[30m"
+    RED      = "\033[31m"
+    GREEN    = "\033[32m"
+    YELLOW   = "\033[33m"
+    BLUE     = "\033[34m"
+    MAGENTA  = "\033[35m"
+    CYAN     = "\033[36m"
+    WHITE    = "\033[37m"
+    BRED     = "\033[91m"
+    BGREEN   = "\033[92m"
+    BYELLOW  = "\033[93m"
+    BBLUE    = "\033[94m"
+    BMAGENTA = "\033[95m"
+    BCYAN    = "\033[96m"
+    BWHITE   = "\033[97m"
+
+    @staticmethod
+    def enable_ansi():
+        try:
+            kernel32 = ctypes.windll.kernel32
+            kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)
+        except Exception:
+            pass
+
+
+def _c(color: str, text: str) -> str:
+    return f"{color}{text}{C.RESET}"
+
+
+# ══════════════════════════════════════════════════════════════
+# TELA DE ABERTURA E ENCERRAMENTO
+# ══════════════════════════════════════════════════════════════
+
+# Logo GREEK OPTIMIZER em ASCII art (bloco grande)
+LOGO = [
+    r" ██████╗ ██████╗ ███████╗███████╗██╗  ██╗",
+    r"██╔════╝ ██╔══██╗██╔════╝██╔════╝██║ ██╔╝",
+    r"██║  ███╗██████╔╝█████╗  █████╗  █████╔╝ ",
+    r"██║   ██║██╔══██╗██╔══╝  ██╔══╝  ██╔═██╗ ",
+    r"╚██████╔╝██║  ██║███████╗███████╗██║  ██╗",
+    r" ╚═════╝ ╚═╝  ╚═╝╚══════╝╚══════╝╚═╝  ╚═╝",
+]
+
+
+def show_startup():
+    """Tela de abertura com logo grande. Aguarda ENTER para entrar no painel."""
+    os.system("cls")
+
+    admin_str = (f"{C.BGREEN}✓ Administrador{C.RESET}"
+                 if is_admin() else f"{C.BYELLOW}⚠ Usuário Comum{C.RESET}")
+
+    pad = "  "
+    print()
+    print()
+    for line in LOGO:
+        print(f"{pad}{C.BCYAN}{C.BOLD}{line}{C.RESET}")
+    print()
+    print(f"{pad}{C.BCYAN}{'━' * 44}{C.RESET}")
+    print(f"{pad}{C.BWHITE}{C.BOLD}        O P T I M I Z E R{C.RESET}")
+    print(f"{pad}{C.DIM}   Λ · Ω · Σ · Δ · Φ · Ψ · Π · Θ · Ξ · Γ{C.RESET}")
+    print(f"{pad}{C.BCYAN}{'━' * 44}{C.RESET}")
+    print()
+    print(f"{pad}{C.DIM}Admin : {C.RESET}{admin_str}")
+    print()
+    print()
+    input(f"{pad}{C.BCYAN}  ⚡  Pressione ENTER para acessar o painel...  ⚡{C.RESET}")
+
+
+def show_exit_screen():
+    """Tela de encerramento limpa."""
+    os.system("cls")
+
+    username = os.environ.get("USERNAME", "user")
+    now_str  = datetime.now().strftime("%d/%m/%Y  %H:%M")
+
+    pad = "  "
+    print()
+    print()
+    for line in LOGO:
+        print(f"{pad}{C.BYELLOW}{C.DIM}{line}{C.RESET}")
+    print()
+    print(f"{pad}{C.BYELLOW}{'━' * 44}{C.RESET}")
+    print(f"{pad}{C.BYELLOW}{C.BOLD}        O P T I M I Z E R{C.RESET}")
+    print(f"{pad}{C.BYELLOW}{'━' * 44}{C.RESET}")
+    print()
+    print(f"{pad}{C.BYELLOW}👋  Até logo, {username}!{C.RESET}")
+    print(f"{pad}{C.DIM}📅  {now_str}{C.RESET}")
+    print(f"{pad}{C.DIM}    Que Deus abençoe sua máquina!{C.RESET}")
+    print()
+    time.sleep(3)
 
 
 # ══════════════════════════════════════════════════════════════
@@ -24,7 +123,6 @@ from pathlib import Path
 # ══════════════════════════════════════════════════════════════
 
 def is_admin() -> bool:
-    """Verifica se o script roda com privilégios de Administrador."""
     try:
         return ctypes.windll.shell32.IsUserAnAdmin()
     except Exception:
@@ -32,13 +130,13 @@ def is_admin() -> bool:
 
 
 def confirm(prompt: str) -> bool:
-    """Solicita confirmação S/N do usuário."""
-    answer = input(f"\n  {prompt} [s/N]: ").strip().lower()
+    answer = input(
+        f"\n  {C.CYAN}{prompt}{C.RESET} {C.DIM}[s/N]{C.RESET}: "
+    ).strip().lower()
     return answer in ("s", "sim", "y", "yes")
 
 
 def bytes_to_mb(size: int) -> float:
-    """Converte bytes para megabytes."""
     return round(size / (1024 * 1024), 2)
 
 
@@ -47,20 +145,21 @@ def clear_screen():
 
 
 def print_header(subtitle: str = ""):
-    """Exibe o cabeçalho padrão do programa."""
     clear_screen()
-    print("═" * 62)
-    print("       ⚡  PC OPTIMIZER  —  Windows Performance Tool")
+    print()
+    print(f"  {C.BCYAN}{'━' * 60}{C.RESET}")
+    print(f"  {C.BCYAN}{C.BOLD}  Ω  GREEK OPTIMIZER  Σ{C.RESET}"
+          f"  {C.DIM}Λ · Δ · Φ · Ψ · Π · Θ{C.RESET}")
     if subtitle:
-        print(f"       {subtitle}")
-    print("═" * 62)
-    mode = "✅ Administrador" if is_admin() else "⚠️  Usuário comum (acesso limitado)"
-    print(f"  Modo: {mode}")
-    print("═" * 62)
+        print(f"  {C.CYAN}{'─' * 60}{C.RESET}")
+        print(f"  {C.BOLD}{subtitle}{C.RESET}")
+    mode = (f"{C.BGREEN}✅ Administrador{C.RESET}"
+            if is_admin() else f"{C.BYELLOW}⚠️  Usuário comum (acesso limitado){C.RESET}")
+    print(f"  {C.DIM}Admin: {C.RESET}{mode}")
+    print(f"  {C.BCYAN}{'━' * 60}{C.RESET}")
 
 
 def run_command(cmd: list, timeout: int = 120) -> tuple:
-    """Executa um comando do sistema de forma segura. Retorna (código, saída)."""
     try:
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
         return r.returncode, r.stdout + r.stderr
@@ -71,15 +170,9 @@ def run_command(cmd: list, timeout: int = 120) -> tuple:
 
 
 def clean_folder(folder: Path) -> tuple:
-    """
-    Apaga recursivamente o conteúdo de uma pasta.
-    Arquivos em uso são ignorados silenciosamente.
-    Retorna (itens_deletados, bytes_liberados).
-    """
     deleted, freed = 0, 0
     if not folder.exists():
         return 0, 0
-
     for item in folder.iterdir():
         try:
             if item.is_file() or item.is_symlink():
@@ -92,15 +185,13 @@ def clean_folder(folder: Path) -> tuple:
                 deleted += 1
         except (PermissionError, OSError):
             pass
-
     return deleted, freed
 
 
 # ══════════════════════════════════════════════════════════════
-# MÓDULO 1 — GAME MODE (Otimização para Jogos)
+# MÓDULO 1 — GAME MODE
 # ══════════════════════════════════════════════════════════════
 
-# Processos conhecidos por consumir RAM em segundo plano
 HEAVY_PROCESSES = [
     "chrome.exe", "msedge.exe", "opera.exe", "brave.exe",
     "discord.exe", "skype.exe", "slack.exe", "teams.exe",
@@ -109,71 +200,68 @@ HEAVY_PROCESSES = [
 
 
 def flush_dns():
-    """Limpa o cache DNS para reduzir latência/ping. Requer Admin."""
-    print("\n  🌐 Limpando cache DNS...")
+    print(f"\n  {C.BCYAN}🌐 Limpando cache DNS...{C.RESET}")
     if not is_admin():
-        print("  ⚠️  Requer Administrador — pulado.")
+        print(f"  {C.BYELLOW}⚠️  Requer Administrador — pulado.{C.RESET}")
         return
     code, _ = run_command(["ipconfig", "/flushdns"])
-    print("  ✅ Cache DNS limpo." if code == 0 else "  ❌ Falha ao limpar DNS.")
+    if code == 0:
+        print(f"  {C.BGREEN}✅ Cache DNS limpo.{C.RESET}")
+    else:
+        print(f"  {C.BRED}❌ Falha ao limpar DNS.{C.RESET}")
 
 
 def set_high_performance():
-    """Ativa o plano de energia 'Alto Desempenho'. Requer Admin."""
-    print("\n  ⚡ Ativando plano de energia 'Alto Desempenho'...")
+    print(f"\n  {C.BCYAN}⚡ Ativando plano de energia 'Alto Desempenho'...{C.RESET}")
     if not is_admin():
-        print("  ⚠️  Requer Administrador — pulado.")
+        print(f"  {C.BYELLOW}⚠️  Requer Administrador — pulado.{C.RESET}")
         return
-    # GUID nativo do plano Alto Desempenho do Windows
     GUID = "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c"
     code, _ = run_command(["powercfg", "/setactive", GUID])
-    print("  ✅ Plano ativado." if code == 0 else "  ❌ Falha ao mudar plano de energia.")
+    if code == 0:
+        print(f"  {C.BGREEN}✅ Plano ativado.{C.RESET}")
+    else:
+        print(f"  {C.BRED}❌ Falha ao mudar plano de energia.{C.RESET}")
 
 
 def kill_heavy_processes():
-    """Detecta processos pesados em execução e encerra os que o usuário confirmar."""
-    print("\n  🔫 Verificando processos pesados em execução...")
-
-    # Lê a lista de processos ativos via tasklist
+    print(f"\n  {C.BCYAN}🔫 Verificando processos pesados...{C.RESET}")
     code, output = run_command(["tasklist", "/fo", "csv", "/nh"])
     if code != 0:
-        print("  ❌ Não foi possível listar processos.")
+        print(f"  {C.BRED}❌ Não foi possível listar processos.{C.RESET}")
         return
 
     running = [p for p in HEAVY_PROCESSES if p.lower() in output.lower()]
-
     if not running:
-        print("  ✅ Nenhum processo pesado encontrado.")
+        print(f"  {C.BGREEN}✅ Nenhum processo pesado encontrado.{C.RESET}")
         return
 
-    print(f"  Encontrados {len(running)} processo(s):")
+    print(f"  {C.BYELLOW}Encontrados {len(running)} processo(s):{C.RESET}")
     for p in running:
-        print(f"    • {p}")
+        print(f"    {C.DIM}•{C.RESET} {p}")
 
     killed = 0
     for proc in running:
         if confirm(f"Encerrar '{proc}'?"):
             code, _ = run_command(["taskkill", "/f", "/im", proc])
             if code == 0:
-                print(f"    ✅ '{proc}' encerrado.")
+                print(f"    {C.BGREEN}✅ '{proc}' encerrado.{C.RESET}")
                 killed += 1
             else:
-                print(f"    ❌ Não foi possível encerrar '{proc}'.")
+                print(f"    {C.BRED}❌ Não foi possível encerrar '{proc}'.{C.RESET}")
         else:
-            print(f"    ⏭️  '{proc}' mantido.")
+            print(f"    {C.DIM}⏭️  '{proc}' mantido.{C.RESET}")
 
-    print(f"\n  📊 {killed}/{len(running)} processos encerrados.")
+    print(f"\n  {C.BCYAN}📊 {killed}/{len(running)} processos encerrados.{C.RESET}")
 
 
 def run_game_mode():
-    """Executa todas as otimizações do Game Mode em sequência."""
     print_header("🎮  GAME MODE — Otimização para Jogos")
-    print()
     flush_dns()
     set_high_performance()
     kill_heavy_processes()
-    print("\n  ✅ Game Mode concluído! Bons jogos.")
-    input("\n  Pressione ENTER para voltar ao menu...")
+    print(f"\n  {C.BGREEN}✅ Game Mode concluído! Bons jogos.{C.RESET}")
+    input(f"\n  {C.DIM}Pressione ENTER para voltar ao menu...{C.RESET}")
 
 
 # ══════════════════════════════════════════════════════════════
@@ -185,7 +273,6 @@ PREFETCH_DIR  = Path(r"C:\Windows\Prefetch")
 
 
 def _clean_recycle_bin() -> tuple:
-    """Esvazia a Lixeira usando a API nativa do Windows."""
     freed = 0
     try:
         info = ctypes.create_string_buffer(32)
@@ -198,9 +285,8 @@ def _clean_recycle_bin() -> tuple:
 
 
 def _clean_windows_update() -> tuple:
-    """Limpa o cache de downloads do Windows Update (para serviço antes de apagar)."""
     if not is_admin():
-        print("  ⚠️  Requer Administrador — pulado.")
+        print(f"  {C.BYELLOW}⚠️  Requer Administrador — pulado.{C.RESET}")
         return 0, 0
     os.system("net stop wuauserv >nul 2>&1")
     result = clean_folder(WUPDATE_CACHE)
@@ -209,9 +295,8 @@ def _clean_windows_update() -> tuple:
 
 
 def _clean_prefetch() -> tuple:
-    """Apaga arquivos de pré-carregamento do Windows (recriados automaticamente)."""
     if not is_admin():
-        print("  ⚠️  Requer Administrador — pulado.")
+        print(f"  {C.BYELLOW}⚠️  Requer Administrador — pulado.{C.RESET}")
         return 0, 0
     return clean_folder(PREFETCH_DIR)
 
@@ -225,7 +310,6 @@ JUNK_CATEGORIES = [
 
 
 def run_junk_cleaner():
-    """Menu de limpeza: confirma cada categoria antes de apagar."""
     print_header("🗑️  LIMPEZA DE ARQUIVOS INÚTEIS")
     print()
 
@@ -233,9 +317,9 @@ def run_junk_cleaner():
     total_deleted, total_freed = 0, 0
 
     for name, func in JUNK_CATEGORIES:
-        print(f"  ── {name}")
+        print(f"  {C.BCYAN}── {name}{C.RESET}")
         if not confirm(f"Limpar '{name}'?"):
-            print("  ⏭️  Pulado.\n")
+            print(f"  {C.DIM}⏭️  Pulado.{C.RESET}\n")
             continue
 
         deleted, freed = func()
@@ -243,39 +327,36 @@ def run_junk_cleaner():
         total_deleted += deleted
         total_freed   += freed_mb
         summary.append((name, deleted, freed_mb))
-        print(f"  ✅ {deleted} item(ns) | {freed_mb} MB liberados\n")
+        print(f"  {C.BGREEN}✅ {deleted} item(ns) | {freed_mb} MB liberados{C.RESET}\n")
 
-    # Resumo final
-    print("\n" + "═" * 58)
-    print("  📊 RESUMO DA LIMPEZA")
-    print("═" * 58)
+    print(f"\n  {C.BCYAN}{'═' * 54}{C.RESET}")
+    print(f"  {C.BOLD}📊 RESUMO DA LIMPEZA{C.RESET}")
+    print(f"  {C.BCYAN}{'═' * 54}{C.RESET}")
     if not summary:
-        print("  Nenhuma categoria executada.")
+        print(f"  {C.DIM}Nenhuma categoria executada.{C.RESET}")
     else:
         W = 28
-        print(f"  {'Categoria':<{W}} {'Itens':>6}  {'Liberado':>10}")
-        print("  " + "─" * 48)
+        print(f"  {C.CYAN}{'Categoria':<{W}} {'Itens':>6}  {'Liberado':>10}{C.RESET}")
+        print(f"  {C.DIM}{'─' * 48}{C.RESET}")
         for cat, d, f in summary:
-            print(f"  {cat:<{W}} {d:>6}  {f:>8.2f} MB")
-        print("  " + "─" * 48)
-        print(f"  {'TOTAL':<{W}} {total_deleted:>6}  {total_freed:>8.2f} MB")
-    print("═" * 58)
+            print(f"  {cat:<{W}} {d:>6}  {C.BGREEN}{f:>8.2f} MB{C.RESET}")
+        print(f"  {C.DIM}{'─' * 48}{C.RESET}")
+        print(f"  {C.BOLD}{'TOTAL':<{W}} {total_deleted:>6}  {C.BGREEN}{total_freed:>8.2f} MB{C.RESET}")
+    print(f"  {C.BCYAN}{'═' * 54}{C.RESET}")
 
-    input("\n  Pressione ENTER para voltar ao menu...")
+    input(f"\n  {C.DIM}Pressione ENTER para voltar ao menu...{C.RESET}")
 
 
 # ══════════════════════════════════════════════════════════════
 # MÓDULO 3 — DEEP UNINSTALLER
 # ══════════════════════════════════════════════════════════════
 
-# Chaves do registro onde ficam os apps instalados
 UNINSTALL_KEYS = [
     (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
     (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"),
     (winreg.HKEY_CURRENT_USER,  r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
 ]
 
-# Pastas onde apps costumam deixar resquícios
 LEFTOVER_DIRS = [
     Path(os.environ.get("APPDATA",      "")),
     Path(os.environ.get("LOCALAPPDATA", "")),
@@ -285,7 +366,6 @@ LEFTOVER_DIRS = [
     Path(r"C:\Program Files (x86)"),
 ]
 
-# Raízes do registro para buscar chaves residuais
 LEFTOVER_REG_ROOTS = [
     (winreg.HKEY_CURRENT_USER,  r"SOFTWARE"),
     (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE"),
@@ -294,18 +374,12 @@ LEFTOVER_REG_ROOTS = [
 
 
 def _get_installed_apps() -> list:
-    """
-    Lê o registro do Windows e retorna todos os apps instalados.
-    Filtra entradas sem nome, sem desinstalador e atualizações de sistema.
-    """
     apps = {}
-
     for hive, key_path in UNINSTALL_KEYS:
         try:
             key = winreg.OpenKey(hive, key_path)
         except OSError:
             continue
-
         for i in range(winreg.QueryInfoKey(key)[0]):
             try:
                 sub_name = winreg.EnumKey(key, i)
@@ -319,12 +393,10 @@ def _get_installed_apps() -> list:
 
                 name      = _val("DisplayName").strip()
                 uninstall = _val("UninstallString").strip()
-
                 if not name or not uninstall:
                     continue
                 if any(s in name for s in ("Update for", "Security Update", "Hotfix", "KB4", "KB5")):
                     continue
-
                 if name not in apps:
                     apps[name] = {
                         "name":             name,
@@ -333,23 +405,15 @@ def _get_installed_apps() -> list:
                         "uninstall_cmd":    uninstall,
                         "install_location": _val("InstallLocation"),
                     }
-
                 winreg.CloseKey(sub_key)
             except OSError:
                 continue
-
         winreg.CloseKey(key)
-
     return sorted(apps.values(), key=lambda x: x["name"].lower())
 
 
 def _run_uninstaller(cmd: str) -> bool:
-    """
-    Executa o desinstalador oficial do app.
-    Injeta flags silenciosas para MsiExec e NSIS quando possível.
-    """
     cmd_lower = cmd.lower()
-
     if "msiexec" in cmd_lower:
         cmd = cmd.replace("/I{", "/X{").replace("/i{", "/X{")
         if "/quiet" not in cmd_lower and "/q" not in cmd_lower:
@@ -358,33 +422,29 @@ def _run_uninstaller(cmd: str) -> bool:
         if "/s" not in cmd_lower:
             cmd += " /S"
 
-    print(f"\n  ▶ Executando desinstalador...")
-    print(f"    {cmd[:80]}{'...' if len(cmd) > 80 else ''}")
-
+    print(f"\n  {C.BCYAN}▶ Executando desinstalador...{C.RESET}")
+    print(f"  {C.DIM}{cmd[:80]}{'...' if len(cmd) > 80 else ''}{C.RESET}")
     try:
         proc = subprocess.Popen(cmd, shell=True)
         proc.wait(timeout=180)
         return proc.returncode in (0, 1605, 1614, 3010)
     except subprocess.TimeoutExpired:
         proc.kill()
-        print("  ⚠️  Desinstalador não respondeu — processo encerrado.")
+        print(f"  {C.BYELLOW}⚠️  Desinstalador não respondeu — processo encerrado.{C.RESET}")
         return False
     except Exception as e:
-        print(f"  ❌ Erro: {e}")
+        print(f"  {C.BRED}❌ Erro: {e}{C.RESET}")
         return False
 
 
 def _find_leftover_folders(app_name: str, install_location: str) -> list:
-    """Busca pastas residuais do app em locais comuns do Windows."""
     words    = [w for w in app_name.split() if len(w) > 3]
     keywords = list({app_name.lower()} | {w.lower() for w in words})
     found    = []
-
     if install_location:
         p = Path(install_location)
         if p.exists():
             found.append(p)
-
     for base in LEFTOVER_DIRS:
         if not base.exists():
             continue
@@ -395,16 +455,13 @@ def _find_leftover_folders(app_name: str, install_location: str) -> list:
                         found.append(child)
         except (PermissionError, OSError):
             pass
-
     return found
 
 
 def _find_leftover_registry(app_name: str) -> list:
-    """Busca chaves de registro residuais do app. Retorna lista de (hive, caminho)."""
     words    = [w for w in app_name.split() if len(w) > 3]
     keywords = list({app_name.lower()} | {w.lower() for w in words})
     found    = []
-
     for hive, base_path in LEFTOVER_REG_ROOTS:
         try:
             base_key = winreg.OpenKey(hive, base_path)
@@ -418,105 +475,94 @@ def _find_leftover_registry(app_name: str) -> list:
             winreg.CloseKey(base_key)
         except OSError:
             continue
-
     return found
 
 
 def _delete_registry_key(hive, key_path: str):
-    """Apaga uma chave de registro e todas as subchaves via 'reg delete'."""
     hive_name = "HKLM" if hive == winreg.HKEY_LOCAL_MACHINE else "HKCU"
     run_command(["reg", "delete", f"{hive_name}\\{key_path}", "/f"])
 
 
 def _deep_clean_app(app: dict):
-    """
-    Etapa 2 da desinstalação: remove TODOS os resquícios.
-    Varre pastas comuns e chaves de registro, pedindo confirmação.
-    """
     name             = app["name"]
     install_location = app.get("install_location", "")
 
-    print(f"\n  🔍 Procurando resquícios de '{name}'...")
-    time.sleep(1)  # Aguarda o desinstalador liberar arquivos
+    print(f"\n  {C.BCYAN}🔍 Procurando resquícios de '{name}'...{C.RESET}")
+    time.sleep(1)
 
-    # ── Pastas residuais ─────────────────────────────────────
     folders = _find_leftover_folders(name, install_location)
-
     if folders:
-        print(f"\n  📂 {len(folders)} pasta(s) residual(is) encontrada(s):")
+        print(f"\n  {C.BYELLOW}📂 {len(folders)} pasta(s) residual(is) encontrada(s):{C.RESET}")
         for p in folders:
             try:
                 size_mb = bytes_to_mb(sum(f.stat().st_size for f in p.rglob("*") if f.is_file()))
             except Exception:
                 size_mb = 0.0
-            print(f"    • {p}  ({size_mb} MB)")
+            print(f"    {C.DIM}•{C.RESET} {p}  ({size_mb} MB)")
 
         if confirm("  Apagar todas as pastas residuais?"):
             for p in folders:
                 try:
                     shutil.rmtree(p, ignore_errors=True)
-                    print(f"    🗑️  Removido: {p.name}")
+                    print(f"    {C.BGREEN}🗑️  Removido: {p.name}{C.RESET}")
                 except Exception as e:
-                    print(f"    ⚠️  Erro ao remover '{p.name}': {e}")
+                    print(f"    {C.BYELLOW}⚠️  Erro ao remover '{p.name}': {e}{C.RESET}")
     else:
-        print("  ✅ Nenhuma pasta residual encontrada.")
+        print(f"  {C.BGREEN}✅ Nenhuma pasta residual encontrada.{C.RESET}")
 
-    # ── Chaves de registro ───────────────────────────────────
     if is_admin():
         reg_keys = _find_leftover_registry(name)
-
         if reg_keys:
-            print(f"\n  🗝️  {len(reg_keys)} chave(s) de registro encontrada(s):")
+            print(f"\n  {C.BYELLOW}🗝️  {len(reg_keys)} chave(s) de registro encontrada(s):{C.RESET}")
             for _, path in reg_keys:
-                print(f"    • {path}")
-
+                print(f"    {C.DIM}•{C.RESET} {path}")
             if confirm("  Apagar essas chaves do registro?"):
                 for hive, path in reg_keys:
                     _delete_registry_key(hive, path)
-                    print(f"    🗑️  Removido: ...\\{path.split(chr(92))[-1]}")
+                    print(f"    {C.BGREEN}🗑️  Removido: ...\\{path.split(chr(92))[-1]}{C.RESET}")
         else:
-            print("  ✅ Nenhuma chave de registro residual encontrada.")
+            print(f"  {C.BGREEN}✅ Nenhuma chave de registro residual encontrada.{C.RESET}")
     else:
-        print("\n  ⚠️  Limpeza de registro ignorada (requer Administrador).")
+        print(f"\n  {C.BYELLOW}⚠️  Limpeza de registro ignorada (requer Administrador).{C.RESET}")
 
 
 def _handle_uninstall(app: dict):
-    """Conduz o fluxo completo: confirmar → desinstalar → limpar resquícios."""
     print_header("📦  DEEP UNINSTALLER")
-    print(f"\n  App selecionado:\n")
-    print(f"    Nome:       {app['name']}")
-    print(f"    Versão:     {app['version'] or '—'}")
-    print(f"    Fabricante: {app['publisher'] or '—'}")
+    print(f"\n  {C.BOLD}App selecionado:{C.RESET}\n")
+    print(f"  {C.CYAN}Nome:      {C.RESET}{app['name']}")
+    print(f"  {C.CYAN}Versão:    {C.RESET}{app['version'] or '—'}")
+    print(f"  {C.CYAN}Fabricante:{C.RESET}{app['publisher'] or '—'}")
     if app["install_location"]:
-        print(f"    Local:      {app['install_location']}")
+        print(f"  {C.CYAN}Local:     {C.RESET}{app['install_location']}")
     print()
 
     if not confirm(f"Desinstalar '{app['name']}' completamente?"):
-        print("  ⏭️  Cancelado.")
+        print(f"  {C.DIM}⏭️  Cancelado.{C.RESET}")
         time.sleep(1)
         return
 
-    print("\n  ── ETAPA 1: Desinstalação oficial ──")
+    print(f"\n  {C.BCYAN}── ETAPA 1: Desinstalação oficial ──{C.RESET}")
     success = _run_uninstaller(app["uninstall_cmd"])
-    print("  ✅ Desinstalador concluído." if success else
-          "  ⚠️  Desinstalador retornou erro. Prosseguindo com limpeza...")
+    if success:
+        print(f"  {C.BGREEN}✅ Desinstalador concluído.{C.RESET}")
+    else:
+        print(f"  {C.BYELLOW}⚠️  Desinstalador retornou erro. Prosseguindo com limpeza...{C.RESET}")
 
-    print("\n  ── ETAPA 2: Remoção de Resquícios ──")
+    print(f"\n  {C.BCYAN}── ETAPA 2: Remoção de Resquícios ──{C.RESET}")
     _deep_clean_app(app)
 
-    print(f"\n  ✅ '{app['name']}' removido completamente!")
-    input("\n  Pressione ENTER para voltar à lista...")
+    print(f"\n  {C.BGREEN}✅ '{app['name']}' removido completamente!{C.RESET}")
+    input(f"\n  {C.DIM}Pressione ENTER para voltar à lista...{C.RESET}")
 
 
 def run_deep_uninstaller():
-    """Exibe lista paginada de apps instalados e permite selecionar para desinstalar."""
     print_header("📦  DEEP UNINSTALLER")
-    print("\n  Carregando aplicativos instalados...\n")
+    print(f"\n  {C.DIM}Carregando aplicativos instalados...{C.RESET}\n")
 
     apps = _get_installed_apps()
     if not apps:
-        print("  ❌ Nenhum aplicativo encontrado no registro.")
-        input("\n  ENTER para voltar...")
+        print(f"  {C.BRED}❌ Nenhum aplicativo encontrado no registro.{C.RESET}")
+        input(f"\n  {C.DIM}ENTER para voltar...{C.RESET}")
         return
 
     PAGE        = 20
@@ -528,20 +574,21 @@ def run_deep_uninstaller():
         start = page * PAGE
         end   = min(start + PAGE, len(apps))
 
-        print(f"\n  Apps instalados — Página {page + 1}/{total_pages}  ({len(apps)} no total)\n")
-        print(f"  {'#':<5} {'Nome':<44} {'Versão'}")
-        print("  " + "─" * 62)
+        print(f"\n  {C.BCYAN}Apps instalados — Página {page + 1}/{total_pages}  ({len(apps)} no total){C.RESET}\n")
+        print(f"  {C.CYAN}{'#':<5} {'Nome':<44} {'Versão'}{C.RESET}")
+        print(f"  {C.DIM}{'─' * 62}{C.RESET}")
 
         for idx in range(start, end):
             a       = apps[idx]
             name    = (a["name"][:41] + "...") if len(a["name"]) > 44 else a["name"]
             version = a["version"][:12] if a["version"] else "—"
-            print(f"  {idx + 1:<5} {name:<44} {version}")
+            print(f"  {C.DIM}{idx + 1:<5}{C.RESET} {name:<44} {C.DIM}{version}{C.RESET}")
 
-        print("\n  " + "─" * 62)
-        print("  [número] Selecionar  |  [p] Próxima  |  [v] Anterior  |  [0] Voltar")
+        print(f"\n  {C.DIM}{'─' * 62}{C.RESET}")
+        print(f"  {C.CYAN}[número]{C.RESET} Selecionar  {C.CYAN}[p]{C.RESET} Próxima"
+              f"  {C.CYAN}[v]{C.RESET} Anterior  {C.CYAN}[0]{C.RESET} Voltar")
 
-        choice = input("\n  Opção: ").strip().lower()
+        choice = input(f"\n  {C.CYAN}Ω {C.RESET}Opção: ").strip().lower()
 
         if choice == "0":
             break
@@ -554,10 +601,213 @@ def run_deep_uninstaller():
             if 0 <= idx < len(apps):
                 _handle_uninstall(apps[idx])
             else:
-                print("  ❌ Número inválido.")
+                print(f"  {C.BRED}❌ Número inválido.{C.RESET}")
                 time.sleep(1)
         else:
-            print("  ❌ Opção inválida.")
+            print(f"  {C.BRED}❌ Opção inválida.{C.RESET}")
+            time.sleep(1)
+
+
+# ══════════════════════════════════════════════════════════════
+# MÓDULO 4 — LIMPEZA DE MÍDIA E DOWNLOADS
+# ══════════════════════════════════════════════════════════════
+
+PHOTO_EXT = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".heic", ".raw", ".tiff", ".tif"}
+VIDEO_EXT = {".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".webm", ".m4v", ".3gp", ".mpeg"}
+DOC_EXT   = {".zip", ".rar", ".7z", ".iso", ".msi", ".exe", ".tar", ".gz", ".pdf", ".docx"}
+
+MEDIA_DIRS = {
+    "Downloads": Path.home() / "Downloads",
+    "Imagens":   Path.home() / "Pictures",
+    "Vídeos":    Path.home() / "Videos",
+    "Desktop":   Path.home() / "Desktop",
+}
+
+
+def _scan_files(folder: Path, extensions: set,
+                min_days: int = 0, min_size_mb: float = 0) -> list:
+    results = []
+    if not folder.exists():
+        return results
+    cutoff    = datetime.now() - timedelta(days=min_days)
+    min_bytes = min_size_mb * 1024 * 1024
+    try:
+        for f in folder.rglob("*"):
+            if not f.is_file():
+                continue
+            if f.suffix.lower() not in extensions:
+                continue
+            try:
+                stat  = f.stat()
+                size  = stat.st_size
+                mtime = datetime.fromtimestamp(stat.st_mtime)
+                if min_days > 0 and mtime > cutoff:
+                    continue
+                if size < min_bytes:
+                    continue
+                results.append({"path": f, "size": size, "mtime": mtime, "name": f.name})
+            except (PermissionError, OSError):
+                continue
+    except (PermissionError, OSError):
+        pass
+    return sorted(results, key=lambda x: x["size"], reverse=True)
+
+
+def _print_file_table(files: list, max_rows: int = 20):
+    print(f"\n  {C.CYAN}{'#':<5} {'Nome':<40} {'Tamanho':>10}  {'Data'}{C.RESET}")
+    print(f"  {C.DIM}{'─' * 70}{C.RESET}")
+    for i, f in enumerate(files[:max_rows], 1):
+        name = (f["name"][:37] + "...") if len(f["name"]) > 40 else f["name"]
+        mb   = bytes_to_mb(f["size"])
+        date = f["mtime"].strftime("%d/%m/%Y")
+        sc   = C.BRED if mb > 500 else (C.BYELLOW if mb > 100 else C.BWHITE)
+        print(f"  {C.DIM}{i:<5}{C.RESET} {name:<40} {sc}{mb:>8.1f} MB{C.RESET}  {C.DIM}{date}{C.RESET}")
+    if len(files) > max_rows:
+        print(f"  {C.DIM}... e mais {len(files) - max_rows} arquivo(s){C.RESET}")
+    total_mb = bytes_to_mb(sum(f["size"] for f in files))
+    print(f"  {C.DIM}{'─' * 70}{C.RESET}")
+    print(f"  {C.BOLD}Total: {len(files)} arquivo(s) → {C.BGREEN}{total_mb:.1f} MB{C.RESET}")
+
+
+def _do_delete(files: list):
+    deleted, freed = 0, 0
+    for f in files:
+        try:
+            freed += f["size"]
+            f["path"].unlink()
+            deleted += 1
+        except (PermissionError, OSError):
+            pass
+    print(f"\n  {C.BGREEN}✅ {deleted} arquivo(s) removido(s) — {bytes_to_mb(freed):.1f} MB liberados!{C.RESET}")
+
+
+def _clean_old_downloads():
+    print_header("📥  DOWNLOADS ANTIGOS")
+    folder = MEDIA_DIRS["Downloads"]
+    print(f"\n  {C.DIM}Pasta: {folder}{C.RESET}")
+
+    try:
+        days_str = input(f"\n  {C.CYAN}Arquivos mais antigos que quantos dias? [30]: {C.RESET}").strip()
+        days = int(days_str) if days_str.isdigit() else 30
+    except Exception:
+        days = 30
+
+    all_exts = PHOTO_EXT | VIDEO_EXT | DOC_EXT | {".txt", ".csv", ".xlsx", ".pptx"}
+    print(f"\n  {C.DIM}Procurando arquivos com mais de {days} dias...{C.RESET}")
+    files = _scan_files(folder, all_exts, min_days=days)
+
+    if not files:
+        print(f"\n  {C.BGREEN}✅ Nenhum arquivo encontrado com mais de {days} dias.{C.RESET}")
+        input(f"\n  {C.DIM}ENTER para voltar...{C.RESET}")
+        return
+
+    _print_file_table(files)
+
+    if confirm("Apagar TODOS esses arquivos?"):
+        _do_delete(files)
+    else:
+        print(f"  {C.DIM}⏭️  Cancelado.{C.RESET}")
+
+    input(f"\n  {C.DIM}ENTER para voltar...{C.RESET}")
+
+
+def _clean_photos():
+    print_header("🖼️  LIMPEZA DE FOTOS")
+    print(f"\n  {C.DIM}Procurando fotos em Downloads e Imagens...{C.RESET}")
+
+    all_photos = []
+    for fname, folder in [("Downloads", MEDIA_DIRS["Downloads"]),
+                           ("Imagens",   MEDIA_DIRS["Imagens"])]:
+        found = _scan_files(folder, PHOTO_EXT)
+        for f in found:
+            f["folder"] = fname
+        all_photos.extend(found)
+
+    if not all_photos:
+        print(f"\n  {C.BGREEN}✅ Nenhuma foto encontrada.{C.RESET}")
+        input(f"\n  {C.DIM}ENTER para voltar...{C.RESET}")
+        return
+
+    _print_file_table(all_photos)
+    total_mb = bytes_to_mb(sum(f["size"] for f in all_photos))
+
+    print(f"\n  {C.CYAN}Opções:{C.RESET}")
+    print(f"    {C.BCYAN}[1]{C.RESET} Apagar todas as fotos ({total_mb:.1f} MB)")
+    print(f"    {C.BCYAN}[2]{C.RESET} Apagar apenas de Downloads")
+    print(f"    {C.DIM}[0]{C.RESET} Cancelar")
+
+    choice = input(f"\n  {C.CYAN}Ω {C.RESET}Opção: ").strip()
+
+    if choice == "1":
+        if confirm(f"Apagar {len(all_photos)} foto(s)?"):
+            _do_delete(all_photos)
+    elif choice == "2":
+        to_del = [f for f in all_photos if f.get("folder") == "Downloads"]
+        if to_del and confirm(f"Apagar {len(to_del)} foto(s) de Downloads?"):
+            _do_delete(to_del)
+    else:
+        print(f"  {C.DIM}⏭️  Cancelado.{C.RESET}")
+
+    input(f"\n  {C.DIM}ENTER para voltar...{C.RESET}")
+
+
+def _clean_videos():
+    print_header("🎬  LIMPEZA DE VÍDEOS GRANDES")
+
+    try:
+        size_str = input(f"\n  {C.CYAN}Vídeos maiores que quantos MB? [200]: {C.RESET}").strip()
+        min_size = float(size_str) if size_str.replace(".", "").isdigit() else 200.0
+    except Exception:
+        min_size = 200.0
+
+    print(f"\n  {C.DIM}Procurando vídeos maiores que {min_size:.0f} MB...{C.RESET}")
+    all_videos = []
+    for folder in [MEDIA_DIRS["Downloads"], MEDIA_DIRS["Vídeos"], MEDIA_DIRS["Desktop"]]:
+        all_videos.extend(_scan_files(folder, VIDEO_EXT, min_size_mb=min_size))
+
+    if not all_videos:
+        print(f"\n  {C.BGREEN}✅ Nenhum vídeo grande encontrado.{C.RESET}")
+        input(f"\n  {C.DIM}ENTER para voltar...{C.RESET}")
+        return
+
+    _print_file_table(all_videos)
+
+    if confirm("Apagar TODOS esses vídeos?"):
+        _do_delete(all_videos)
+    else:
+        print(f"  {C.DIM}⏭️  Cancelado.{C.RESET}")
+
+    input(f"\n  {C.DIM}ENTER para voltar...{C.RESET}")
+
+
+def run_media_cleaner():
+    while True:
+        print_header("📁  LIMPEZA DE MÍDIA E DOWNLOADS")
+        print(f"""
+  {C.DIM}Escolha o que deseja limpar:{C.RESET}
+
+    {C.BCYAN}[1]{C.RESET}  📥  Downloads Antigos   — Arquivos com mais de X dias
+    {C.BCYAN}[2]{C.RESET}  🖼️   Fotos               — Imagens em Downloads e Pictures
+    {C.BCYAN}[3]{C.RESET}  🎬  Vídeos Grandes       — Vídeos acima de X MB
+    {C.BCYAN}[4]{C.RESET}  🔥  Limpar Tudo          — Executa as 3 opções acima
+    {C.DIM}[0]{C.RESET}  ↩️   Voltar ao Menu
+""")
+        choice = input(f"  {C.CYAN}Ω {C.RESET}Opção: ").strip()
+
+        if choice == "1":
+            _clean_old_downloads()
+        elif choice == "2":
+            _clean_photos()
+        elif choice == "3":
+            _clean_videos()
+        elif choice == "4":
+            _clean_old_downloads()
+            _clean_photos()
+            _clean_videos()
+        elif choice == "0":
+            break
+        else:
+            print(f"  {C.BRED}❌ Opção inválida.{C.RESET}")
             time.sleep(1)
 
 
@@ -566,19 +816,23 @@ def run_deep_uninstaller():
 # ══════════════════════════════════════════════════════════════
 
 def main_menu():
-    """Loop principal com todas as opções unificadas."""
     while True:
         print_header()
-        print("""
-  Escolha uma opção:
+        now = datetime.now().strftime("%d/%m/%Y  %H:%M")
+        print(f"""
+  {C.DIM}Escolha uma opção:{C.RESET}
 
-    [1]  🎮  Game Mode         — DNS, plano de energia, matar processos pesados
-    [2]  🗑️  Limpeza           — Temp, Lixeira, Windows Update, Prefetch
-    [3]  📦  Deep Uninstaller  — Desinstalar apps e apagar todos os resquícios
-    [4]  🚀  Tudo de Uma Vez   — Executa as 3 opções em sequência
-    [0]  ❌  Sair
+    {C.BCYAN}[1]{C.RESET}  🎮  {C.BOLD}Game Mode{C.RESET}          — DNS, plano de energia, processos pesados
+    {C.BCYAN}[2]{C.RESET}  🗑️  {C.BOLD}Limpeza{C.RESET}            — Temp, Lixeira, Windows Update, Prefetch
+    {C.BCYAN}[3]{C.RESET}  📦  {C.BOLD}Deep Uninstaller{C.RESET}   — Desinstalar apps e apagar resquícios
+    {C.BCYAN}[4]{C.RESET}  📁  {C.BOLD}Mídia & Downloads{C.RESET}  — Fotos, vídeos e arquivos antigos
+    {C.BCYAN}[5]{C.RESET}  🚀  {C.BOLD}Otimização Total{C.RESET}   — Executa todas as opções em sequência
+    {C.DIM}[0]{C.RESET}  ❌  {C.BOLD}Sair{C.RESET}
+
+  {C.DIM}─────────────────────────────────────{C.RESET}
+  {C.DIM}🕐 {now}{C.RESET}
 """)
-        choice = input("  Opção: ").strip()
+        choice = input(f"  {C.BCYAN}Ω{C.RESET} Opção: ").strip()
 
         if choice == "1":
             run_game_mode()
@@ -587,14 +841,18 @@ def main_menu():
         elif choice == "3":
             run_deep_uninstaller()
         elif choice == "4":
+            run_media_cleaner()
+        elif choice == "5":
             run_game_mode()
             run_junk_cleaner()
+            run_media_cleaner()
             run_deep_uninstaller()
         elif choice == "0":
-            print("\n  👋 Encerrando. Até logo!\n")
+            show_exit_screen()
+            print(f"\n  {C.BYELLOW}👋 Que Deus abençoe! Até logo!{C.RESET}\n")
             sys.exit(0)
         else:
-            print("  ❌ Opção inválida.")
+            print(f"  {C.BRED}❌ Opção inválida.{C.RESET}")
             time.sleep(1)
 
 
@@ -607,9 +865,6 @@ if __name__ == "__main__":
         print("❌ Este script é exclusivo para Windows.")
         sys.exit(1)
 
-    if not is_admin():
-        print("\n  ⚠️  AVISO: Execute como Administrador para acesso total.")
-        print("     Clique com botão direito no arquivo → 'Executar como administrador'\n")
-        input("  ENTER para continuar com acesso limitado...")
-
+    C.enable_ansi()
+    show_startup()
     main_menu()
